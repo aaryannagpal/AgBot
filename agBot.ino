@@ -1,4 +1,4 @@
-// LEFT MOTOR
+// Pins for the Left Motor, according to the ciruit diagram made
 #define lft_R_IS 4
 #define lft_R_EN 2
 #define lft_R_PWM 5
@@ -6,7 +6,7 @@
 #define lft_L_EN 1
 #define lft_L_PWM 3
 
-// RIGHT MOTOR
+// Pins for the Right Motor, according to the ciruit diagram made
 #define rgt_R_IS 13
 #define rgt_R_EN 12 
 #define rgt_R_PWM 6
@@ -17,9 +17,9 @@
 char fromPi;
 
 void setup() {
-  // put your setup code here, to run once:
- // LEFT MOTOR DRIVER
 
+  
+ // LEFT MOTOR DRIVER
  pinMode(lft_R_IS, OUTPUT);
  pinMode(lft_R_EN, OUTPUT);
  pinMode(lft_R_PWM, OUTPUT);
@@ -45,6 +45,7 @@ void setup() {
 
  Serial.begin(9600);
 }
+
 void right(int pwmcycle) {
    analogWrite(rgt_R_PWM, pwmcycle);
    analogWrite(rgt_L_PWM, 0); 
@@ -81,10 +82,11 @@ void stopmotors(){
    analogWrite(lft_L_PWM, 0);  
 }
 void loop() {
-  delay(100);
+  delay(15);
   if (Serial.available() > 0) {
     fromPi = Serial.read();
-    if (fromPi == 'F') {
+    
+    if     (fromPi == 'F') {
       forward(255);
     }
     else if (fromPi== 'B') {
@@ -107,5 +109,6 @@ void loop() {
 //  else{
 //    stopmotors();
 //  }
+  Serial.flush();
 
 }
