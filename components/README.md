@@ -1,2 +1,2 @@
 ## Components
-This directory contains images of the components used in this project.
+This directory contains images and files for the components used in this project.
