@@ -14,8 +14,7 @@ AgBot is a ..................
 - 2 IBT-2 H-Bridge
 - 4 Motor (model ask)
 - Soldering Equipment
-- Chasis (more info)
-- Side Chasis (more info - dimensions and all)
+- 4 Acrylic Chassis (more info)
 
   .
   .
@@ -27,6 +26,11 @@ _It is not necessary to use the exact same components_
 
 ## Building the AgBot
 ### Assembling the Chasis
+For this project, we created the frame of our robot using Acrylic Chassis. In total, we used laser cutter to create four of them to create the body, with several openings for the motor axes and screws. The ```.cad``` file is attached in the repository.
+
+The chassis look like this:
+
+Two of them has their length side bent 90 degrees to create the side chassis. It was bent at a distance of 54 mm from each ends of the breadth. The side chassis look like:
 ### Creating the Motor Ciruit
 ### Creating the H-Bridge Circuit
 ### Motor Code on Uno
