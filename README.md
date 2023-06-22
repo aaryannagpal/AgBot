@@ -1,7 +1,7 @@
-# AgBot
+# Project AgBot
 ## Description
 Created while working as a Teaching Assistant for the Young Technology Scholar Program, 2023 at Plaksha University.<br><br>
-AgBot is a ..................
+AgBot is a 
 
 ## Components Used
 - Arduino Uno (and cable)
@@ -26,25 +26,32 @@ _It is not necessary to use the exact same components_
 
 ## Building the AgBot
 ### Assembling the Chasis
-For this project, we created the frame of our robot using Acrylic Chassis. In total, we used laser cutter to create four of them to create the body, with several openings for the motor axes and screws. The ```.cad``` file is attached in the repository.
+For this project, we created the frame of our robot using Acrylic Chassis. In total, we used laser cutter to create four of them to create the body, with several openings for the motor axes and screws. The ```CAD``` file is attached in the repository.
 
-The chassis look like this:
+The chassis looks like this: <br>
+<center>
+<img src="./components/chassis.jpeg" width="300" height="250">
+</center>
 
 Two of them has their length side bent 90 degrees to create the side chassis. It was bent at a distance of 54 mm from each ends of the breadth. The side chassis look like:
+<center>
+<img src="./components/side-chassis.jpeg" width="300" height="250">
+</center>
+
 ### Creating the Motor Ciruit
 ### Creating the H-Bridge Circuit
 ### Motor Code on Uno
 #### Writing the Code
 #### Configuration
 ### Setting up Raspberry Pi
-#### Flashing
+#### Flashing 
 #### Connecting to Local Network
 #### Setting up SSH
 ### Serial Control Code on Raspberry Pi
 #### Writing the Code
 #### Configuration
 ### Accessing camera from Raspberry Pi
-### Image Analysis from Raspberry Pi
+### Image Analysis on the Server
 #### Writing the Code
 
 ## Final Look
