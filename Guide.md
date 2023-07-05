@@ -19,6 +19,8 @@ Joining the two side chassis with the other two chassis, we obatain the same str
 <center>
 <img src="./components/built.jpg" width="300" height="250">
 </center>
+<br>
+
 _Top chassis is not shown in the image_
 
 # Creating the Motor Ciruit
@@ -151,6 +153,44 @@ python3 <filename>.py
 ```
 We can now use the keypad to control the AgBot. By sending in the input from the keypad, we can check if the motors are moving in the desired direction. If not, we can change the direction in the code and re-run the code.
 # Image Analysis from Raspberry Pi
+## Setting up Motion
+We will use the ```motion``` library to access the camera feed from the Raspberry Pi. We will also use the ```cv2``` library to analyse the feed and mask the green color from the feed.
+
+We first install the service in the Raspberry Pi by using the following command:
+```bash
+sudo apt-get install motion
+```
+To ensure that the camera is properly detected, enter the command 'lsusb' and press enter. This command will display the name of your camera. If you do not see the camera's name, it indicates a problem with the camera or that it is not supported in the 'motion' software.
+
+Once its done, we can now configure the ```motion``` service. We can do this by editing the ```motion.conf``` file. We can do this by using the following command:
+```bash
+ sudo nano /etc/motion/motion.conf 
+```
+For now, we put the following values in the file:
+```Daemon: On
+Width: 640
+Height: 480
+Framerate: 1500
+Output images: on
+Quality: 100
+Stream_quality: 100
+Stream_maxrate: 30
+Stream_localhost: off
+Webcontrol_localhost: off
+```
+You can change the values as per your requirements.
+
+Now, enter the following:
+```bash
+sudo nano /etc/default/motion
+```
+and set ```start_motion_daemon``` to ```yes```.
+
+We can restart the service and activate it from the following command:
+```bash
+sudo service motion restart
+sudo motion
+```
 ## Displaying the camera feed
 Using the ```paramiko``` library, we can access the camera feed from the Raspberry Pi. We begin by importing the ```paramiko``` library. We then define the ```SSHClient``` object by using the ```paramiko.SSHClient()``` function. We then use the ```SSHClient.set_missing_host_key_policy(paramiko.AutoAddPolicy())``` function to add the host key to the ```SSHClient``` object. We then use the ```SSHClient.connect()``` function to connect to the Raspberry Pi. We pass the IP address, username and password as the parameters.
 
@@ -277,11 +317,195 @@ capture.release()
 cv2.destroyAllWindows()
 ssh.close()
 ```
-# Setting up soil sensor
+# Setting up soil sensors
+## Soil Sensor Circuit
 ## Soil data collection
-## Bluetooth connection with Client AgBots
-## Setting up on the ESP32
-## Setting up on the Raspberry Pi (Client)
-# Setting up the Server
+## Bluetooth connection with AgBots
+# Setting up Client-side AgBots
+These AgBots will receive the data from the Soil Sensors controlled by ESP32 and collect their mask images. They will then send all of this to the server every 2 minutes.
+## To Server AgBot
+
+## From ESP32
+We will be receiving the JSON data from the ESP32s using bluetooth using ```sockets``` and store as CSV. We import the following:
+```python
+import bluetooth
+import time
+import json
+import csv
+from datetime import datetime
+```
+For the client AgBots, since they are receiving data for the ESP32s in their proximity, they can save that data with the file path of their choice. For this instance, we will be setting the ```csvLocation``` as ```home/pi/Desktop/soil_data/received_data.csv```.
+
+Now, we store the names of our ESP32in a list ```esp_names```. For now, we have only 4 sensors, which are named as "ESP32-North", "ESP32-South", "ESP32-East" and "ESP32-West" and will be spread out in the field in the respective directions. So, we will store these names in the list.
+
+Now, we need the MAC addresses of the ESP32s, and to collect them, we will define a function ```find_esp32_mac_address()``` with ```esp32_device_name``` as a parameter. We will use the ```bluetooth.discover_devices()``` function to discover the devices in the proximity and store them in a list ```nearby_devices```. We then iterate through the list and check if the device name matches the ```esp32_device_name``` parameter. If it does, we return the MAC address of the device, otherwise returns ```None```. The function would look like this:
+```python
+def find_esp32_mac_address(esp32_device_name):
+    nearby_devices = bluetooth.discover_devices(duration=8, lookup_names=True, flush_cache=True, lookup_class=False)
+
+    for device_address, device_name in nearby_devices:
+        if device_name == esp32_device_name:
+            return device_address
+
+    return None
+```
+We will also define a function ```connect_to_esp32()``` with parameter ```esp32_device_name``` for connecting to the ESP32 so they can send data. We will first call the ```find_esp32_mac_address()``` function to get the MAC address of the ESP32 and store it in a variable ```esp32_mac_address```.  If the address is not none, we use the ```bluetooth.BluetoothSocket()``` function to create a socket object and store it in a variable ```esp32_socket```. We then use the ```esp32_socket.connect()``` function to connect to the ESP32. We pass the MAC address as the parameter. We then return the socket object if connected, otherwise ```None```. The function would look like this:
+```python
+def connect_to_esp32(esp32_device_name):
+    esp32_mac_address = find_esp32_mac_address(esp32_device_name)
+    if esp32_mac_address:
+        sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        port = 1  # RFCOMM port number
+
+        try:
+            sock.connect((esp32_mac_address, port))
+            print(f"Connected to {esp32_device_name}")
+            return sock
+        except Exception as e:
+            print(f"Failed to connect to {esp32_device_name}: {e}")
+            return None
+    else:
+        print("ESP32 device not found.")
+        return None
+```
+
+Now, we define a function ```receive_serial_data()``` with parameter ```sock``` to receive the data from the ESP32. We first define a variable ```data``` to store the data received from the ESP32. We then use the ```sock.recv()``` function to receive the data and store it in the ```data``` variable. We then decode the data from bytes to string using the ```decode()``` function and remove the leading and trailing whitespace using the ```strip()``` function. 
+
+If the resulting string is not empty, we use ```json.loads()``` function to parse the string as a JSON and store it in a variable ```data_json```. From that, we extract the values for the keys ```ESP Name``` and ```Soil Moisture``` and store them in variables ```esp_name``` and ```soil_moisture``` respectively. We also save the current timestamp as a string in a variable ```timestamp```. Finally, we write these as a row in the CSV file using the ```csv.writer()``` function in the order "timestamp", "esp_name" and "soil_moisture". The function would look like this: We put this code under a ```try``` block and write the code for the ```except``` block to handle any errors, and this whole block in a ```while True``` loop to keep receiving data from the ESP32s. 
+
+The code would look like this:
+```python
+def receive_serial_data(sock):
+    while True:
+        try:
+            data = sock.recv(1024)
+            if data:
+                data_str = data.decode().strip()
+                if data_str != '':
+                    print(f"Received data: {data_str}")
+                    data_json = json.loads(data_str)
+
+                    esp_name = data_json.get("ESP Name", "")
+                    soil_moisture = data_json.get("Soil Moisture", "")
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    csv_row = [timestamp, esp_name, soil_moisture]
+                    with open(csvLocation, "a", newline="") as csvfile:
+                        csv_writer = csv.writer(csvfile)
+                        csv_writer.writerow(csv_row)
+
+        except Exception as e:
+            print(f"Error receiving data: {e}")
+            break
+```
+Finally, we run the code by calling the functions in the ```main``` function as follows:
+```python
+if __name__ == '__main__':
+    while True:
+        for device_name in esp32_device_names:
+            esp32_socket = connect_to_esp32(device_name)
+
+            if esp32_socket:
+                receive_serial_data(esp32_socket)
+            else:
+                print(f"Connection to {device_name} failed.")
+
+            time.sleep(2)
+```
+# Setting up the Server-side AgBot
+The only thing this AgBot will do is receive the data from the Client-side AgBots, as well as all the soil sensors (ESP32) and store everything. 
+
+For now, we will just store the soil data as a CSV file and the mask images in a directory as JPEG files in seperate directries for each AgBot sending their data. 
+
+For the ESP32s sending their data, we will maintain a common CSV file for all of them which will store the data along with their timestamps.
+
+We collect data from both ESP32s as well as the Client-side AgBots so that we can compare the data collected by the AgBots from the soil sensors and do a quality check.
 ## From Client AgBots
 ## From ESP32
+Since we would be storing the JSON data sent from the ESP in a CSV file along with their timestamps, using Wi-Fi through ```sockets```, we import the following:
+```python
+import socket
+import json
+from datetime import datetime
+import csv
+```
+Then, we specify an IP and Port for the UDP socket. We keep the IP as ```0.0.0.0``` and port as ```8888``` so that we can receive data from network interfaces. We then create a socket object and bind it to the IP and port.
+
+```python
+UDP_IP = "0.0.0.0"
+UDP_PORT = 8888
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+```
+We specify the name of our CSV file, where we will be storing all the data sent by all the sensors as well as a boolean data type variable ```connected``` to act as a flag which will just inform us of a successful connection.
+
+We first receive the data and the address from the UDP Packet and store it in the respective variables. If the received data is not empty, it is decoded from bytes to a string using the ```decode()``` method, and any leading or trailing whitespace is removed. If the resulting ```data_str``` is not an empty string, it is printed as the received data and then parsed as a JSON using ```json.loads()``` method and stored in a variable ```data_json```.
+
+After this, the values from the JSON are extracted and stored in variables ```esp_Name``` and ```soil_moisture```. Along with this, the current timestamp is also stored in a variable ```timestamp``` as a string. We then write the values from these variables to the CSV in the order ```timestamp```, ```esp_Name``` and ```soil_moisture```.
+
+Now, we put this code in a ```try``` block and write the code for the ```except``` block to handle any errors, and this whole block in a ```while True``` loop to keep receiving data from the ESP32s.
+
+This part of the code would look like this:
+```python
+while True:
+    try:
+        data, addr = sock.recvfrom(1024)
+        # check if connected or not and print
+        
+        if data:
+            data_str = data.decode().strip()
+            if data_str != '':
+                print(f"Received: {data_str}")
+                data_json = json.loads(data_str)
+                
+                esp_name = data_json.get("ESP Name", "")
+                soil_moisture = data_json.get("Soil Moisture", "")
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                csv_row = [timestamp, esp_name, soil_moisture]
+                with open(csv_file, "a", newline="") as csvfile:
+                    csv_writer = csv.writer(csvfile)
+                    csv_writer.writerow(csv_row)
+                print("Written to CSV")
+    except Exception as e:
+        print(f"Error receiving data: {e}")
+        break
+```
+# Activating the AgBots
+## Client Side
+For the client AgBots, we need to activate codes for the following:
+- Motion Control
+- Receiving Data from ESP32
+- Sending Data to Server
+
+We write the following commands after SSHing into the Raspberry Pi on different terminals to activate the codes:
+```bash
+sudo restart service motion
+sudo motion
+python3 <motion-control-code>.py
+```
+```bash
+python3 <ESPSensor-Client>.py
+```
+```bash
+python3 <pi2pi-client>.py
+```
+After this, we also activate the video feed and image masking code on the laptop SSHing into the Pi. We can do this by using the following command:
+```bash
+python3 <video-feed-analysis-code>.py
+```
+Your client is setup and ready to go!
+## Server Side
+For the server AgBot, we need to activate codes for the following:
+- Receiving Data from ESP32
+- Receiving Data from Client AgBots
+
+We write the following commands after SSHing into the Raspberry Pi on different terminals to activate the codes:
+```bash
+python3 <ESPSensor>.py
+```
+```bash
+python3 <pi2pi-server>.py
+```
+Your server is setup and ready to go!
