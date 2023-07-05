@@ -26,9 +26,16 @@ _It is not necessary to use the exact same components_
 ## Pre-requisites (optional)
 - Arduino IDE
 - VS Studio Code
-
-
 ## Final Look
-## References
+The final AgBot, along with the soil sensors, looks like this:
+<center>
+<img src="./components/fullAgBot.jpg">
+</center>
 
+## References
+We made most of the AgBot from the scratch, but did refer to the following resources:
+
+- [Raspberry Pi Webcam Server and Stream Live Video](https://www.instructables.com/How-to-Make-Raspberry-Pi-Webcam-Server-and-Stream-/)
+
+- [Green Analysis and Image Masking]()
 
