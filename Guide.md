@@ -324,6 +324,45 @@ ssh.close()
 # Setting up Client-side AgBots
 These AgBots will receive the data from the Soil Sensors controlled by ESP32 and collect their mask images. They will then send all of this to the server every 2 minutes.
 ## To Server AgBot
+To send the data to the server, we will be using ```sockets```. We will be sending the data as a JSON object. We will be using the ```socket``` library to establish the connection and the ```json``` library to convert the data to JSON. We will also be using the ```base64``` library to encode the images as base64 strings, the ```os``` library to get the file paths and the ```time``` library to set the time interval for sending the data. 
+```python
+import socket
+import time
+import os
+import json
+import base64
+```
+We first define the IP and Port for the server, along with the directory path where we want to store the masks and the soil data. We also store a name for the AgBot in the ```username``` variable.
+```python
+server_ip = ''  # Server IP
+server_port = 1235 
+
+directory_path = 'masks' 
+csv_file_path = './soil-data/received_data.csv'  
+username = ''  # Replace with the desired username
+```
+Now, we write out code inside a ```while True``` loop to keep sending the data to the server. We begin by creating a socket object using the ```socket.socket()``` function and connect to the server. We define an empty dictionary ```data``` , where we put 'username' as key and the ```username``` as value.
+
+We open our CSV as a file object and read the data using the ```read()``` function. We then encode the data as base64 string using the ```base64.b64encode()``` function and store it in a variable ```csv_data```. 
+```python
+with open(csv_file_path, 'rb') as csv_file:
+    csv_data = csv_file.read()
+    data['csv'] = base64.b64encode(csv_data).decode()
+```
+We create an empty list ```images``` to store the base64-encoded images. We then iterate through the files in the ```directory_path``` directory and read the data using the ```read()``` function. We then encode the data as base64 string using the ```base64.b64encode()``` function and append it to the ```images``` list. The ```images``` list is then added to the ```data``` dictionary with the key ```images```. 
+```python
+images = []
+for file_name in os.listdir(directory_path):
+    image_path = os.path.join(directory_path, file_name)
+    with open(image_path, 'rb') as image_file:
+        image_data = image_file.read()
+    encoded_image_data = base64.b64encode(image_data).decode()
+    images.append(encoded_image_data)
+data['images'] = images
+```
+
+
+Finally, this dictionary is converted to a JSON object using the ```json.dumps()``` function and stored in a variable ```json_data``` which is then sent using ```socket.send()``` function. We then close the socket connection using the ```socket.close()``` function and sleep for 2 minutes using the ```time.sleep()``` function, after which the loop repeats.
 
 ## From ESP32
 We will be receiving the JSON data from the ESP32s using bluetooth using ```sockets``` and store as CSV. We import the following:
@@ -421,6 +460,96 @@ For the ESP32s sending their data, we will maintain a common CSV file for all of
 
 We collect data from both ESP32s as well as the Client-side AgBots so that we can compare the data collected by the AgBots from the soil sensors and do a quality check.
 ## From Client AgBots
+As the server, we would be receiving the masks and the soil data collected by the client AgBots using ```sockets```. We begin by first importing the following:
+```python
+import socket
+import json
+import time
+import base64
+import os
+import sys
+from threading import Thread
+```
+We set up the host IP as ```0.0.0.0``` and port as ```1235``` and create a socket object, bind it and start listeningfor client connections. e also define a path, for now, it is ```home/pi/Desktop/received-server-files```, in the ```base_dir``` variable where we would store the masks and the soil data. 
+
+We then define a ```handle_client()``` function, which takes ```client_socket``` as parameter. We would initialize an empty bytes string for storing the JSON. Using a ```while True``` loop, we constastly receive chunks of data using the ```client_socket.recv()``` function and store it in a variable ```chunk```, which, if not empty, gets appended to the ```json_data``` variable. If no chunk is received, we break the loop.
+
+We then decode the received data and then parse it as a JSON object and extract the ```username```. We then create a directory with the name of the ```username``` in the ```base_dir``` directory. We then create a ```masks``` directory inside the ```username``` directory and store the masks in that directory. We also create a ```soil-data``` directory inside the ```username``` directory and store the soil data in that directory in ```received_data.csv```.
+
+We retrieve the base64-encoded CSV data from the received data dictionary, and decode it back to its original form using ```base64.b64decode()```, which we write to the CSV file opened using ```wb``` mode. 
+
+Now, we retrieve the list of base64-encoded image data from the received data JSON and assign it to the ```images``` variable. We then iterate over the list and decode each image data back to its original form using ```base64.b64decode()```. We then write the decoded image data to a file in the ```masks``` directory with the name ```mask_<timestamp>.jpg```. We then send aclnowledgement to the clients.
+
+We put this whole block inside a ```try-except``` block to handle any errors with a ```finally``` block to close the socket connection. The function would look like this:
+```python
+def handle_client(client_socket):
+    try:
+        json_data = b''
+        while True:
+            chunk = client_socket.recv(1024)
+            if not chunk:
+                break
+            json_data += chunk      
+        
+        data = json.loads(json_data.decode())
+        username = data['username']
+        user_dir = os.path.join(base_dir, username)
+        if not os.path.exists(user_dir):
+            os.makedirs(user_dir)
+
+        masks_dir = os.path.join(user_dir, 'masks')
+        soil_data_dir = os.path.join(user_dir, 'soil-data')
+        if not os.path.exists(masks_dir):
+            os.makedirs(masks_dir)
+        if not os.path.exists(soil_data_dir):
+            os.makedirs(soil_data_dir)
+
+        csv_data = base64.b64decode(data['csv'])
+        csv_file_path = os.path.join(soil_data_dir, 'received_data.csv')
+        with open(csv_file_path, 'wb') as csv_file:
+            csv_file.write(csv_data)
+        print('CSV file saved:', csv_file_path)
+
+        images = data['images']
+        for idx, image_data in enumerate(images):
+            image_data = base64.b64decode(image_data)
+            image_path = os.path.join(masks_dir, 	'received_image_{}_{}.jpg'.format(int(time.time()), idx))
+            with open(image_path, 'wb') as image_file:
+                image_file.write(image_data)
+            print('Image saved:', image_path)
+
+        client_socket.sendall(b'ACK')
+
+    except Exception as e:
+        print(e)
+
+    finally:
+        client_socket.close()
+```
+
+We define another function ```start_server()``` to start the server. We open the socket connection and accept the client connections. We then create a thread for each client connection and start the thread. We add it all under a ```try-except``` block to handle any errors or keyboard interruptions. The function would look like this:
+```python
+def start_server():
+    while True:
+        try:
+            client_socket, client_address = server_socket.accept()
+            print('Client connected: {}'.format(client_address))
+
+            client_thread = Thread(target=handle_client, args=(client_socket,))
+            client_thread.start()
+
+        except KeyboardInterrupt:
+            print('Closing the server')
+            server_socket.close()
+            sys.exit(0)
+
+        except Exception as e:
+            print(e)
+            continue
+```
+We finally run ```start_server()``` in the end.
+
+
 ## From ESP32
 Since we would be storing the JSON data sent from the ESP in a CSV file along with their timestamps, using Wi-Fi through ```sockets```, we import the following:
 ```python
