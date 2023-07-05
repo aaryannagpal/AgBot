@@ -5,14 +5,13 @@ import json
 import base64
 
 
-server_ip = '10.1.45.100'  # DO NOT CHANGE - FRIGGINDOPEROBOT IP
+server_ip = ''  # Server IP
 server_port = 1235 
 
 directory_path = 'masks' 
 
-csv_file_path = './soil-data/received_data.csv'  # Replace with the actual CSV file path
-
-username = 'xi-jinping'  # Replace with the desired username
+csv_file_path = './soil-data/received_data.csv'  
+username = ''  # Replace with the desired username
 
 
 while True:
