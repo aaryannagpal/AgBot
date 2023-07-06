@@ -15,10 +15,10 @@ AgBot is an advanced robot equipped with wheels using Raspberry Pi and Arduino U
 - 4 Motor
 - Soldering Equipment
 - 4 Acrylic Chassis
-
-  .
-  .
-  .
+- 4 DC Motors
+- ESP32 
+- Breadboard Power Supply
+- Soil Resistive Moisture Sensors
 
 **You can find the relevant dimensions and models for components in the ```components/``` directory.**
 
@@ -37,5 +37,4 @@ We made most of the AgBot from the scratch, but did refer to the following resou
 
 - [Raspberry Pi Webcam Server and Stream Live Video](https://www.instructables.com/How-to-Make-Raspberry-Pi-Webcam-Server-and-Stream-/)
 
-- [Green Analysis and Image Masking]()
-
+- [Green Analysis and Image Masking](https://www.tutorialspoint.com/how-to-mask-an-image-in-opencv-python)
