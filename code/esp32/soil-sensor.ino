@@ -3,14 +3,15 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 
-const char* ssid = "Lab_Test";
-const char* password = "Weekdays@2023";
-const char* host = "10.1.45.100";   // IP address of the receiving server
+const char* ssid = ""; // Your WiFi SSID
+const char* password = ""; // Your WiFi password
+const char* host = "";   // IP address of the receiving server
 const int port = 8888;  
 
 #define ESP_NAME "ESP32-West"
 
-int Moisture, sensor_analog;
+int sensor_analog;
+// int Moisture; // incase you want to map the value
 const int sensor_pin = 36;
 
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
@@ -74,8 +75,8 @@ void loop() {
   delay(20);
   
   sensor_analog = analogRead(sensor_pin);
-  // time_t currentTime = time(nullptr);
-
+  
+  // incase you want to map the value
   // Moisture = map(sensor_analog, 0, 4095, 100, 0);
   StaticJsonDocument<128> Data;
 
