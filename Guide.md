@@ -319,8 +319,173 @@ ssh.close()
 ```
 # Setting up soil sensors
 ## Soil Sensor Circuit
-## Soil data collection
-## Bluetooth connection with AgBots
+We will be using the ESP32 to collect the soil data. We will be using the Breadboard Power Supply board for this.
+
+The circuit looks like this:
+<center>
+<img src="./diagrams/soil-sensor.png" width="300" height="250">
+</center>
+
+**Please note that the backside of the power supply is shown to clearly see the connections**
+## Send soil data to Raspberry Pi
+Before we start sending the data, we need to start collecting it first. In our circuit, you can see we are using the ```VP``` pin, which has the pin number ```36``` on the ESP32. To collect the data, we simply do an ```analogRead(36)```.
+
+Now, to send the data. The sensors have to send the data to the Client AgBots as well as the Server AgBot. We want our design to be such that the AgBot only starts receiving data when it is in a close proximity to the sensor while the server continuosly receives it irrespective of the proximity. To implement this, we decided that the client-ESP communication is done over Bluetooth and the server-ESP communication is done over WiFi. 
+
+**We will send the data as a JSON object so ensure that the ```ArduinoJson``` library is installed on your Arduino IDE.**
+
+For the server, it is necessary for a connection to not break. However, if we use the same logic for a client, it can cause problems because ESP32 can connect to only one device at a time, and that can cause hoarding of a sensor by the client, not allowing others to collect data.
+
+To avoid this, we would introduce a timer interrupt, which would break the bluetooth connection between the client and ESP32 after a certain time interval. This would allow other clients to connect to the ESP32 and collect data.
+
+To connect with your AgBots, ensure you have run the following commands on your Raspberry Pi:
+```bash
+sudo apt-get install bluetooth libbluetooth-dev
+sudo python3 -m pip install pybluez
+```
+This is to ensure that the ```pybluez``` library is installed on your Raspberry Pi, which will be used to connect to the ESP32s via Bluetooth. 
+
+### Client-ESP Communication
+Before anything else, we first check if bluetooth is enabled in ESP32 or not. To do this, we write:
+```c
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to enable it
+#endif
+```
+This is just a preprocessor directive often used in ESP32 projects to check if Bluetooth is enabled in the project configuration.
+
+We will use Bluetooth Serial to communicate using bluetooth as it is the easiest way to do so. We begin by including the ```BluetoothSerial.h``` library and defining the name of the ESP32 as ```ESP32-West```. We then define a ```BluetoothSerial``` object. We also define an ```unsigned long``` variable ```startTime``` for storing time and a ```bool``` variable ```isConnected``` to check if the ESP32 is connected to a device or not. Initially, we set the value of ```isConnected``` to ```false```.
+
+In the ```setup()``` function, we begin ```Serial``` with a baud rate of 115200. We also begin ```SerialBT``` and give the name of the ESP32 as the parameter. 
+
+So far, the code would look like this:
+```c
+#include "BluetoothSerial.h"
+#include <ArduinoJson.h>
+
+#define ESP_NAME "ESP32-West"
+
+// bluetooth check code
+
+BluetoothSerial SerialBT;
+unsigned long startTime;
+bool isConnected = false;
+
+// soil analysis part
+int sensor_analog_value;
+const int sensor_pin = 36;
+
+void setup(){
+    Serial.begin(115200);
+    SerialBT.begin(ESP_NAME);
+}
+```
+Now, for the ```loop()``` function, we begin by checking first if the ESP32 is already connected by checking the ```isConnected``` variable. If it is not connected, check if there is an incoming connection request from a Bluetooth device using ```SerialBT.connected()```. 
+
+If a connection is detected, set the ```isConnected``` flag to true and record the current time using ```millis()```, which returns the number of milliseconds since the ESP32 started running and store it in the ```startTime``` variable.
+
+If the ESP32 is already connected, check if the Bluetooth connection is lost. If the connection is lost, set the ```isConnected``` flag to false. If connection is still active, check if the time elapsed since the connection is established is greater than 20 seconds. If it is, close the connection using ```SerialBT.disconnect()``` and set the ```isConnected``` flag to false. 
+
+Check if there is data available from the serial port. If there is data available, read a byte of data from the serial port using ```Serial.read()``` and send it to the Bluetooth device using ```SerialBT.write()```. Similarly, check if there is data available from the Bluetooth connection. If there is data available, read a byte of data from the Bluetooth connection using ```SerialBT.read()``` and send it to the serial port using ```Serial.write()```. We then put a small delay of 20 milliseconds to avoid overloading the ESP32.
+
+So far, the code would look like this:
+```c
+void loop(){
+    if(!isConnected){
+        if(SerialBT.hasClient()){
+            isConnected = true;
+            startTime = millis();
+        }
+    } else {
+        if(!SerialBT.connected()){
+            isConnected = false;
+        } else {
+            if(millis() - startTime > 20000){
+                SerialBT.disconnect();
+                isConnected = false;
+            }
+        }
+    }
+
+    if(Serial.available()){
+        SerialBT.write(Serial.read());
+    }
+    if(SerialBT.available()){
+        Serial.write(SerialBT.read());
+    }
+    delay(20);
+}
+```
+Now, we read the data from the soil sensor and send it to the Bluetooth device. We begin by reading the data from the soil sensor using ```analogRead()``` and store it in the variable ```sensor_analog```. We then create a ```StaticJsonDocument``` object ```Data``` with a capacity of 200 bytes. We then create a ```JsonObject``` object ```data``` and add the keys ```ESP_Name``` and ```Soil Moisture``` and add the corresponding the values ```sensor_analog_value``` to it. We then serialize the JSON object using ```serializeJson()``` function and store it in a string variable ```jsonString```. 
+
+We then send the JSON data to the Bluetooth device using ```SerialBT.println()```. We then put a delay of 1000 milliseconds so that the data is sent every second.
+
+Now, the code would look like this:
+```c
+void loop(){
+    sensor_analog = analogRead(sensor_pin);
+    StaticJsonDocument<128> Data;
+
+    Data["ESP Name"] = ESP_NAME;
+    Data["Soil Moisture"] = sensor_analog;
+
+    String jsonString;
+    serializeJson(Data, jsonString);
+
+    SerialBT.println(jsonString);
+    delay(1000);
+}
+```
+The soil data is successfully sent to the client AgBot.
+### Server-ESP Communication
+Since we are sending the data to the server over WiFi, we will also include the ```WiFi.h``` library to connect to the WiFi and the ```WiFiUdp.h``` library to send the data over UDP. 
+
+We define ```char *``` variables to set our WiFi SSID, password and IP of the server and ```int``` variable to set the port number. 
+. We then define a ```WifiUDP``` object called ```udp```.
+
+Now, inside the ```void setup()```, begin the WiFi connection using ```WiFi.begin()``` and pass the SSID and password as the parameters. using a ```while``` loop, we wait until the Wi-Fi connection is successfully established. After the connection is established, we begin the UDP connection using ```udp.begin()``` and pass the port number as the parameter.
+
+So far, the code would look like this:
+```c
+#include "BluetoothSerial.h"
+#include <ArduinoJson.h>
+#include <WiFi.h>
+#include <WiFiUdp.h>
+
+// other definations done in the client-esp part
+
+char *ssid = ""; // wifi ssid
+char *password = ""; // wifi password
+char *server_ip = ""; // server ip
+int port = 1234;
+
+WiFiUDP udp;
+
+void setup(){
+    // other setup done in the client-esp part
+
+    WiFi.begin(ssid, password);
+    while(WiFi.status() != WL_CONNECTED){
+        delay(1000);
+    }
+    udp.begin(port);
+}
+```
+In the loop section, since we have already collected data for sending to client, we simply send the same to the server using ```udp```. We first begin a ```udp.beginPacket()``` and pass the server IP and port number as the parameters. We then send the data using ```udp.print()``` and end the packet using ```udp.endPacket()```. 
+
+Now, the code for the ```loop()``` function would look like this:
+```c
+void loop(){
+    // other loop code done in the client-esp part
+
+    udp.beginPacket(server_ip, port);
+    udp.print(jsonString);
+    udp.endPacket();
+
+    delay(1000); // same delay as the client-esp part
+}
+```
+The soil data is successfully sent to the server AgBot.
 # Setting up Client-side AgBots
 These AgBots will receive the data from the Soil Sensors controlled by ESP32 and collect their mask images. They will then send all of this to the server every 2 minutes.
 ## To Server AgBot
