@@ -143,7 +143,7 @@ try:
       break
     elif char == curses.KEY_UP:
       arduino.write(b'F') # this sends 'F' to arduino. 
-      # Use whatever convention/key you hve decided for each direction
+      # Use whatever convention/key you have decided for each direction
 ```
 We then write the code for the ```finally``` block to close the ```screen``` variable and the ```Serial``` object. We also use the ```curses.nobreak()``` function to disable the keypad mode and the ```curses.echo()``` function to enable the displaying of the keys pressed. In the end, we use the ```curses.endwin()``` function to close the window and close the serial communication by using the ```.close()``` method for the Serial object.
 ## Configuration
