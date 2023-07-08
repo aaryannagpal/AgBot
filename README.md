@@ -1,7 +1,7 @@
 # Project AgBot
 ## Description
-Created while working as a Teaching Assistant for the Young Technology Scholar Program, 2023 at Plaksha University.<br><br>
-AgBot is an advanced robot equipped with wheels using Raspberry Pi and Arduino Uno boards. Designed for data collection, it can traverse various terrains to gather valuable information. With its sensors, AgBot captures ground data, which it efficiently transmits to a central server for analysis and further decision-making. It also has a camera that can be used to capture images and videos of the surroundings.
+AgBot is an advanced robot equipped with wheels using Raspberry Pi and Arduino Uno boards. Designed for data collection, it can traverse various terrains to gather valuable information. With its sensors, AgBot captures ground data, which it efficiently transmits to a central server for analysis and further decision-making. It also has a camera that can be used to capture images and videos of the surroundings.<br><br>
+Created while working as a Teaching Assistant for the Young Technology Scholar Program, 2023 at Plaksha University.
 
 ## Components Used
 - Arduino Uno (and cable)
